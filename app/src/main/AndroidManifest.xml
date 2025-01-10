@@ -2,24 +2,39 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 외부 저장소 권한 선언 -->
     <uses-feature
         android:name="android.hardware.telephony"
         android:required="false" />
 
+    <!-- 외부 저장소 권한 선언 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+
+    <!-- APK 실행 관련 권한-->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- Media 관련 권한-->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+
+    <!-- Calling 관련 권한 -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+
+    <!-- SMS 관련 권한 -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
 
-
+    <!-- 블루투스 관련 권한 -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -50,6 +65,7 @@
             </intent-filter>
         </receiver>
 
+
         <receiver
             android:name=".receiver.InstallReceiver"
             android:enabled="true"
@@ -62,7 +78,7 @@
         </receiver>
 
         <service
-            android:name=".service.MonitoringService"
+            android:name=".service.AntiForensicMonitoringService"
             android:exported="false"
             android:foregroundServiceType="dataSync"/>
         <service
@@ -73,6 +89,17 @@
             android:name=".service.CallLoggingService"
             android:exported="false"
             android:foregroundServiceType="dataSync"/>
+
+        <service
+            android:name=".service.BluetoothLoggingService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

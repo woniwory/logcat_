@@ -1,6 +1,6 @@
 package com.example.logcat.util;
 
-import android.content.ContentResolver;
+import android.content.ContentResolver; // 리소스에 대한 컨트롤
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;

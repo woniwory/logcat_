@@ -30,9 +30,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-public class MonitoringService extends Service {
+public class AntiForensicMonitoringService extends Service {
     private static final String CHANNEL_ID = "MonitoringServiceChannel";
-    private Uri logFileUri;
     private BroadcastReceiver timeChangeReceiver;
     private final Handler handler = new Handler();
     private long lastCheckedTime = System.currentTimeMillis();
@@ -52,7 +51,7 @@ public class MonitoringService extends Service {
         // Initialize log file
         logFileManager.initializeLogFile();
 
-        // Monitor anti-forensic actions
+        // Monitoring anti-forensic actions
         monitorAntiForensicActions();
         monitorShutdownAndReboot();
         monitoringLogcatClear();

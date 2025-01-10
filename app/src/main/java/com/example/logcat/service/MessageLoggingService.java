@@ -9,8 +9,8 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.database.ContentObserver;
-import android.database.Cursor;
+import android.database.ContentObserver; // 변경 감지를 위해 사용 (Cursor와 함께 사용되면 변경 감지되면 cursor를 통해 데이터베이스 이동)
+import android.database.Cursor; // 데이터베이스를 쿼리 하면 이동하기 위해 사용
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;

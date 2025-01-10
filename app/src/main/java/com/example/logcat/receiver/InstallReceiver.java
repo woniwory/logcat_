@@ -5,7 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-import com.example.logcat.service.MonitoringService;
+import com.example.logcat.service.AntiForensicMonitoringService;
 
 public class InstallReceiver extends BroadcastReceiver{
     @Override
@@ -14,7 +14,7 @@ public class InstallReceiver extends BroadcastReceiver{
         if(Intent.ACTION_PACKAGE_ADDED.equals(action) || Intent.ACTION_PACKAGE_REPLACED.equals(action)){
             Log.d("InstallReceiver", "App installed or updated. Starting MonitoringService.");
 
-            Intent serviceIntent = new Intent(context, MonitoringService.class);
+            Intent serviceIntent = new Intent(context, AntiForensicMonitoringService.class);
             context.startForegroundService(serviceIntent);
         }
     }

@@ -1,25 +1,24 @@
 package com.example.logcat.service;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.Service;
-import android.content.BroadcastReceiver;
+import android.app.Notification; // 알림바를 위한 패키지
+import android.app.NotificationChannel; // 알림바를 생성하기 위한 패키지
+import android.app.NotificationManager; // 알림을 표시할 지 여부 결정
+import android.app.Service; // 백그라운드에서 작업을 수행하게 함
+import android.content.BroadcastReceiver; // 브로드캐스트 수신
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.net.Uri;
+import android.content.IntentFilter; // 반응할 특정 이벤트 필터
 import android.os.Build;
-import android.os.IBinder;
-import android.telephony.PhoneStateListener;
-import android.telephony.TelephonyManager;
+import android.os.IBinder; // 바인딩된 데이터 반환
+import android.telephony.PhoneStateListener; // 전화 상태 모니터링
+import android.telephony.TelephonyManager; // 기기의 전화 상태, 네트워크 상태, 데이터 활성화 여부 확인 간으
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import com.example.logcat.util.LogFileManager;
-import com.example.logcat.R;
+import com.example.logcat.R; // 리소스 파일
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -55,11 +54,11 @@ public class CallLoggingService extends Service {
     }
 
     @SuppressWarnings("deprecation")
-    private void initializePhoneStateListener() {
+    private void initializePhoneStateListener() { // call 함수 호출
         telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
         phoneStateListener = new PhoneStateListener() {
             @Override
-            public void onCallStateChanged(int state, String phoneNumber) {
+            public void onCallStateChanged(int state, String phoneNumber) { // 변화가 있을 때 호출됨
                 Log.d(TAG, "onCallStateChanged: state=" + state + ", phoneNumber=" + phoneNumber);
                 lastDialedNumber = phoneNumber;
                 switch (state) {
@@ -93,7 +92,7 @@ public class CallLoggingService extends Service {
                         break;
 
                     case TelephonyManager.CALL_STATE_RINGING: // 수신 전화
-                        Log.d(TAG, "CALL_STATE_RINGING, HIHI: 전화 울림");
+                        Log.d(TAG, "CALL_STATE_RINGING: 전화 울림");
                         if (phoneNumber != null) {
                             incomingCallNumber = phoneNumber;
                             logCallDetails(incomingCallNumber, 0, 0, "수신 전화 울림");
@@ -103,14 +102,14 @@ public class CallLoggingService extends Service {
             }
         };
 
-        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
+        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE); // 이거 덕분에 listen 할 수 있음
     }
 
     @SuppressWarnings("deprecation")
     private void initializeOutgoingCallReceiver() {
         outgoingCallReceiver = new BroadcastReceiver() {
             @Override
-            public void onReceive(Context context, Intent intent) {
+            public void onReceive(Context context, Intent intent) { // 이벤트가 발생하면 호출됨
                 if (Intent.ACTION_NEW_OUTGOING_CALL.equals(intent.getAction())) {
                     lastDialedNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
                     Log.d(TAG, "발신 전화: " + lastDialedNumber);
