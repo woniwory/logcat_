@@ -1,57 +1,47 @@
 package com.example.forensic.Service;
 
 import com.example.forensic.dto.LogRequest;
+import com.example.forensic.Entity.Log;
+import com.example.forensic.Repository.LogRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.util.List;
 
 @Service
 public class LogService {
 
-    private static final String LOG_DIRECTORY = "logs/";
+    @Autowired
+    private LogRepository logRepository;
 
+    // 로그를 deviceId별로 서브 컬렉션에 저장
     public String appendLog(LogRequest logRequest) {
-        try {
-            // Ensure the log directory exists
-            Files.createDirectories(Paths.get(LOG_DIRECTORY));
+        // deviceId를 컬렉션 이름으로 사용
+        String collectionName = logRequest.getDeviceId() + "_logs";
 
-            // Get the log file name
-            String logFileName = LOG_DIRECTORY + logRequest.getLogType() + ".txt";
+        // 로그 데이터를 Log 객체로 변환
+        Log log = new Log(
+                logRequest.getDeviceId(),
+                logRequest.getSequenceNumber(),
+                logRequest.getTimestamp(),
+                logRequest.getMessage(),
+                logRequest.getLogType()
+        );
 
-            // Format the log entry
-            String logEntry = logRequest.getTimestamp() + " - " + logRequest.getMessage() + System.lineSeparator();
+        // 해당 deviceId 컬렉션에 로그 저장
+        logRepository.save(log, collectionName);  // LogRepository에서 collectionName을 지정할 수 있어야 함
 
-            // Write to the log file
-            Files.write(Paths.get(logFileName), logEntry.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
-            // Return the written content
-            return logEntry;
-
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to write log file", e);
-        }
+        return "Log for device " + logRequest.getDeviceId() + " appended to collection " + collectionName;
     }
 
-    public String readLog(String logType) {
-        try {
-            String logFileName = LOG_DIRECTORY + logType + ".txt";
-            Path logFilePath = Paths.get(logFileName);
+    // 로그를 조회하는 메서드 (deviceId에 맞는 컬렉션에서 조회)
+    public String readLog(String deviceId, String logType) {
+        String collectionName = deviceId + "_logs";  // deviceId별로 컬렉션을 선택
 
-            if (!Files.exists(logFilePath)) {
-                throw new RuntimeException("Log file not found: " + logFileName);
-            }
+        // deviceId 및 logType을 기준으로 로그 조회
+        List<Log> logs = logRepository.findByDeviceIdAndLogType(deviceId, logType, collectionName);
 
-            // Read the entire file content
-            return Files.readString(logFilePath);
-
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read log file", e);
-        }
+        // 조회된 로그를 반환
+        return logs.toString();  // 로그 내용 반환 (실제 구현 시 로그 내용 포맷에 맞게 처리)
     }
-
-
 }

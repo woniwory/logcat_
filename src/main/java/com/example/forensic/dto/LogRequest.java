@@ -1,43 +1,16 @@
 package com.example.forensic.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-
+@Data  // Getter, Setter, toString, equals, hashCode 자동 생성
+@NoArgsConstructor  // 기본 생성자 자동 생성
+@AllArgsConstructor // 모든 필드를 포함하는 생성자 자동 생성
 public class LogRequest {
+    private String deviceId;  // 사용자 ID 대신 기기 ID 사용
     private int sequenceNumber;
     private String timestamp;
     private String message;
     private String logType;
-
-    // Getters and Setters
-    public int getSequenceNumber() {
-        return sequenceNumber;
-    }
-
-    public void setSequenceNumber(int sequenceNumber) {
-        this.sequenceNumber = sequenceNumber;
-    }
-
-    public String getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(String timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public String getLogType() {
-        return logType;
-    }
-
-    public void setLogType(String logType) {
-        this.logType = logType;
-    }
 }
