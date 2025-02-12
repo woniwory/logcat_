@@ -16,12 +16,14 @@ public class LogController {
     }
 
     @PostMapping
-    public ResponseEntity<String> handleLog(@RequestBody LogRequest logRequest) {
+    public String handleLog(@RequestBody LogRequest logRequest) {
         String appendedContent = logService.appendLog(logRequest);
-        return ResponseEntity.ok("Appended to file and saved to MongoDB: " + appendedContent);
+
+        return appendedContent;
     }
 
-    @GetMapping("/logs/{deviceId}/{logType}")
+
+    @GetMapping("/{deviceId}/{logType}")
     public ResponseEntity<String> getLogContents(@PathVariable String deviceId, @PathVariable String logType) {
         String fileContents = logService.readLog(deviceId, logType);
         return ResponseEntity.ok(fileContents);

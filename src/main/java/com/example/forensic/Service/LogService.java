@@ -7,6 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Service
 public class LogService {
@@ -14,10 +18,17 @@ public class LogService {
     @Autowired
     private LogRepository logRepository;
 
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+
     // 로그를 deviceId별로 서브 컬렉션에 저장
     public String appendLog(LogRequest logRequest) {
+
         // deviceId를 컬렉션 이름으로 사용
         String collectionName = logRequest.getDeviceId() + "_logs";
+
+
 
         // 로그 데이터를 Log 객체로 변환
         Log log = new Log(
@@ -31,7 +42,9 @@ public class LogService {
         // 해당 deviceId 컬렉션에 로그 저장
         logRepository.save(log, collectionName);  // LogRepository에서 collectionName을 지정할 수 있어야 함
 
-        return "Log for device " + logRequest.getDeviceId() + " appended to collection " + collectionName;
+        ZonedDateTime kstTime = ZonedDateTime.ofInstant(Instant.now(), KST_ZONE);
+        return kstTime.format(FORMATTER);
+
     }
 
     // 로그를 조회하는 메서드 (deviceId에 맞는 컬렉션에서 조회)
