@@ -5,6 +5,8 @@ import com.example.forensic.Service.LogService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+
 @RestController
 @RequestMapping("/logs")
 public class LogController {
@@ -16,7 +18,7 @@ public class LogController {
     }
 
     @PostMapping
-    public String handleLog(@RequestBody LogRequest logRequest) {
+    public String handleLog(@RequestBody LogRequest logRequest) throws IOException {
         String appendedContent = logService.appendLog(logRequest);
 
         return appendedContent;
