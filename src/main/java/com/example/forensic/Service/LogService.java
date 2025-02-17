@@ -5,15 +5,15 @@ import com.example.forensic.Entity.Log;
 import com.example.forensic.Repository.LogRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class LogService {
@@ -24,11 +24,36 @@ public class LogService {
     private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public String appendLog(LogRequest logRequest) throws IOException {
-        ZonedDateTime kstTime = ZonedDateTime.ofInstant(Instant.now(), KST_ZONE);
-        LocalDateTime serverTimestamp = kstTime.toLocalDateTime();
+    private String calculateFileHash(Path filePath) throws IOException, NoSuchAlgorithmException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
 
-        // 로그 엔티티 생성
+        try (BufferedReader reader = Files.newBufferedReader(filePath)) {
+            StringBuilder content = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+            byte[] textBytes = content.toString().getBytes(StandardCharsets.UTF_8);
+            digest.update(textBytes);
+        }
+
+        byte[] hashBytes = digest.digest();
+        return bytesToHex(hashBytes);
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+
+    public String appendLogAndSaveHash(LogRequest logRequest) throws IOException, NoSuchAlgorithmException {
+        LocalDateTime serverTimestamp = LocalDateTime.parse("2025-02-17T15:08:19");
+
         Log log = new Log(
                 logRequest.getDeviceId(),
                 logRequest.getCreatedAt(),
@@ -39,46 +64,46 @@ public class LogService {
         );
 
         try {
-            // DB에 로그 저장 시 예외 처리 (DB 연결 실패 감지)
             logRepository.save(log);
         } catch (Exception e) {
-            // DB 연결 실패 시 파일 입출력 중지
             throw new IOException("DB connection failed, cannot write to log file.", e);
         }
 
-        // 디렉토리 생성 및 로그 파일 작성 (/log/{logType}/{deviceId}.txt)
-        Path dirPath = Paths.get("log", logRequest.getLogType()); // logType 하위에 디렉토리 생성
-        Files.createDirectories(dirPath);
-        Path logFile = dirPath.resolve(logRequest.getDeviceId() + ".txt"); // deviceId를 파일 이름으로 사용
+        Path logTypePath = Paths.get("log", logRequest.getDeviceId(), logRequest.getLogType());
+        Files.createDirectories(logTypePath);
 
-        // 첫 번째 줄: {createdAt}, {message}
-        // 두 번째 줄: - [INFO] {createdAt} serverTimestamp : {serverTimestamp}
+        Path logFile = logTypePath.resolve(logRequest.getLogType() + ".txt");
+
         try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(logFile,
-                java.nio.file.StandardOpenOption.CREATE,
-                java.nio.file.StandardOpenOption.APPEND))) {
-            // 첫 번째 줄
+                StandardOpenOption.CREATE, StandardOpenOption.APPEND))) {
             writer.printf("%s %s\n",
-                    logRequest.getCreatedAt().format(FORMATTER),  // createdAt
-                    logRequest.getMessage());                       // message
-
-            // 두 번째 줄
-            writer.printf("- [INFO] %s serverTimestamp : %s\n",
-                    logRequest.getCreatedAt().format(FORMATTER),  // createdAt
-                    serverTimestamp.format(FORMATTER));           // serverTimestamp
+                    logRequest.getCreatedAt().format(FORMATTER),
+                    logRequest.getMessage());
+            writer.printf(" - [INFO] %s serverTimestamp : %s\n",
+                    logRequest.getCreatedAt().format(FORMATTER),
+                    serverTimestamp.format(FORMATTER));
         }
+
+        String hash = calculateFileHash(logFile);
+        Path hashFile = logTypePath.resolve("hash.txt");
+
+        String formattedHash = String.format(
+                "[%s] %s's SHA-256 Hash:%s\n",
+                logRequest.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                logRequest.getLogType() + ".txt",
+                hash
+        );
+
+        Files.writeString(hashFile, formattedHash, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+        log.setFileHash(hash);
+        logRepository.save(log);
 
         return serverTimestamp.format(FORMATTER);
     }
 
-
-
     public String readLog(String deviceId, String logType) {
-        // 공통 logs 컬렉션 조회
         List<Log> logs = logRepository.findByDeviceIdAndLogType(deviceId, logType);
         return logs.toString();
     }
 }
-
-
-
-
