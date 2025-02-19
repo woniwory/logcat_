@@ -29,16 +29,17 @@ public class LogRepository {
         return mongoTemplate.find(query, Log.class);
     }
 
-    public List<Log> readLogsWithinDuration(String deviceId, LocalDateTime start, LocalDateTime end) {
-        // 날짜 범위 조건
-        Criteria criteria = new Criteria();
-        criteria.and("deviceId").is(deviceId);
-        criteria.and("createdAt").gte(start).lte(end); // createdAt이 start와 end 사이에 있는지 조건 추가
 
-        // Query 객체 생성
-        Query query = new Query(criteria);
+    // 특정 deviceId의 로그를 주어진 기간 내에서 조회
 
-        // MongoDB에서 쿼리 실행
+    public List<Log> findLogsWithinDuration(String deviceId, LocalDateTime startTime, LocalDateTime endTime) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("deviceId").is(deviceId)
+                .and("createdAt").gte(startTime).lte(endTime));
+
         return mongoTemplate.find(query, Log.class);
     }
 }
+
+
+

@@ -17,17 +17,17 @@ public class Log {
     private LocalDateTime createdAt;    // 로그 생성 시간
     private String message;
     private String logType;
-    private String fileHash;
+    private String hash;
     private LocalDateTime serverTimestamp; // 서버 수집 시간 (무결성 검증용)
 
     // 생성자
     public Log(String deviceId, LocalDateTime createdAt, String message,
-               String logType, String fileHash, LocalDateTime serverTimestamp) {
+               String logType, String hash, LocalDateTime serverTimestamp) {
         this.deviceId = deviceId;
         this.createdAt = createdAt;
         this.message = message;
         this.logType = logType;
-        this.fileHash = fileHash;
+        this.hash = hash;
         this.serverTimestamp = serverTimestamp;
     }
 }

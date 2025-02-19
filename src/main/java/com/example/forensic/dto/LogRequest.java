@@ -14,7 +14,7 @@ public class LogRequest {
     private LocalDateTime createdAt;
     private String message;
     private String logType;
-    private String fileHash;
+    private String hash;
     private LocalDateTime serverTimestamp;
 
 }
