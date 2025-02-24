@@ -39,6 +39,10 @@ public class LogRepository {
 
         return mongoTemplate.find(query, Log.class);
     }
+
+    public void deleteAll() {
+        mongoTemplate.remove(new Query(), Log.class);
+    }
 }
 
 

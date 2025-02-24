@@ -113,4 +113,19 @@ public class LogController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("🚨 무결성 검증 중 오류 발생: " + e.getMessage());
         }
     }
+
+
+    @GetMapping("/timestamp")
+    public ResponseEntity<String> getServerTimestamp() {
+        String currentTimestamp = LocalDateTime.now()
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        return ResponseEntity.ok(currentTimestamp);
+    }
+
+    @DeleteMapping("/all")
+    public ResponseEntity<String> deleteAllLogs() {
+        logService.deleteAll();
+        return ResponseEntity.ok("✅ 모든 로그가 삭제되었습니다.");
+    }
+
 }
