@@ -71,7 +71,19 @@ public class LogService {
         return hexString.toString();
     }
 
-    public String appendLog(MultipartFile logFile, MultipartFile hashFile) throws IOException {
+    private String calculateFileHash(MultipartFile file) throws IOException, NoSuchAlgorithmException {
+        // 파일 내용을 문자열로 읽기
+        InputStream inputStream = file.getInputStream();
+        String content = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))
+                .lines()
+                .collect(Collectors.joining("\n"));
+
+        // 메시지 해시 계산
+        return calculateMessageHash(content);
+    }
+
+
+    public String appendLog(MultipartFile logFile, MultipartFile hashFile) throws IOException, NoSuchAlgorithmException {
         String originalFilename = logFile.getOriginalFilename();
         if (originalFilename == null || !originalFilename.contains("_")) {
             throw new IllegalArgumentException("파일명이 올바르지 않습니다. 형식: deviceId_logType.txt");
@@ -85,6 +97,25 @@ public class LogService {
         String deviceId = parts[0];
         String logType = parts[1].replace(".txt", "");
 
+        // 로그 파일의 해시 계산
+        String logFileHash = calculateFileHash(logFile);
+
+        // 해시 파일 처리
+        String expectedHash = null;
+        if (hashFile != null && !hashFile.isEmpty()) {
+            expectedHash = new BufferedReader(new InputStreamReader(hashFile.getInputStream(), StandardCharsets.UTF_8))
+                    .lines()
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("해시 파일에 내용이 없습니다."));
+        }
+
+        // 해시 값이 다르면 로그를 저장하지 않음
+        if (expectedHash != null && !logFileHash.equals(expectedHash)) {
+            System.out.println("로그 파일 해시값: " + logFileHash);
+            System.out.println("hash.txt 해시값: " + expectedHash);
+            throw new IllegalArgumentException("로그 파일의 해시값이 hash.txt의 해시값과 일치하지 않습니다. \n로그 파일 해시: " + logFileHash + "\nExpected 해시: " + expectedHash);
+        }
+
         // 로그 파일 내용 읽기
         List<String> lines = new BufferedReader(new InputStreamReader(logFile.getInputStream(), StandardCharsets.UTF_8))
                 .lines()
@@ -92,15 +123,6 @@ public class LogService {
 
         if (lines.isEmpty()) {
             throw new IllegalArgumentException("로그 파일이 비어 있습니다.");
-        }
-
-        // 해시 파일 처리
-        String hash = null;
-        if (hashFile != null && !hashFile.isEmpty()) {
-            hash = new BufferedReader(new InputStreamReader(hashFile.getInputStream(), StandardCharsets.UTF_8))
-                    .lines()
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("해시 파일에 내용이 없습니다."));
         }
 
         LocalDateTime serverTimestamp = null;
@@ -130,7 +152,7 @@ public class LogService {
                 }
 
                 // 로그 객체 저장
-                Log log = new Log(deviceId, createdAt, message, logType, hash, serverTimestamp);
+                Log log = new Log(deviceId, createdAt, message, logType, logFileHash, serverTimestamp);
                 logRepository.save(log);
             } catch (DateTimeParseException e) {
                 throw new IllegalArgumentException("날짜 형식이 올바르지 않습니다: " + logParts[0] + " " + logParts[1]);
@@ -145,36 +167,13 @@ public class LogService {
     }
 
 
+
     public String analyzeLogs(String deviceId, LocalDateTime startTime, LocalDateTime endTime) throws Exception {
         List<Log> logs = logRepository.findLogsWithinDuration(deviceId, startTime, endTime);
         logs.sort(Comparator.comparing(Log::getServerTimestamp));
         return generateReport(deviceId, logs, startTime, endTime);
     }
 
-//    private void addLogTable(Document document, String title, String[][] data) {
-//        document.add(new Paragraph(title).setBold().setFontSize(12).setMarginTop(10));
-//
-//        Table table = new Table(new float[]{3, 4, 5}); // Event Type, Details, Occurrence
-//        table.setWidth(100);
-//
-//        table.addHeaderCell(new Cell().add(new Paragraph("Event Type").setBold()));
-//        table.addHeaderCell(new Cell().add(new Paragraph("Details").setBold()));
-//        table.addHeaderCell(new Cell().add(new Paragraph("Occurrence").setBold()));
-//
-//        String currentType = "";
-//        for (String[] row : data) {
-//            if (!row[0].equals(currentType)) {
-//                int rowspan = (int) Stream.of(data).filter(r -> r[0].equals(row[0])).count();
-//                table.addCell(new Cell(rowspan, 1).add(new Paragraph(row[0])));
-//                currentType = row[0];
-//            }
-//            table.addCell(new Cell().add(new Paragraph(row[1])));
-//            table.addCell(new Cell().add(new Paragraph(row[2])));
-//        }
-//
-//        document.add(table);
-//    }
-//
 
     private void addLogTable(Document document, String title, String[][] data) {
         document.add(new Paragraph(title)
@@ -209,6 +208,25 @@ public class LogService {
         document.add(table);
     }
 
+    private String calculateEstimatedTimestamp(LocalDateTime serverTimestamp, LocalDateTime createdAt) {
+        if (serverTimestamp != null && createdAt != null) {
+            // serverTimestamp와 createdAt 사이의 차이 계산
+            Duration duration = Duration.between(createdAt, serverTimestamp);
+
+            // createdAt에 차이를 더한 보정 시간 계산
+            LocalDateTime estimatedDateTime = createdAt.plus(duration);
+
+            return estimatedDateTime.format(FORMATTER);
+        } else if (serverTimestamp != null) {
+            // serverTimestamp가 존재하면 그것을 그대로 사용
+            return serverTimestamp.format(FORMATTER);
+        } else if (createdAt != null) {
+            // serverTimestamp가 없고 createdAt만 있다면 그것을 그대로 사용
+            return createdAt.format(FORMATTER);
+        }
+        return "N/A"; // 두 값 모두 없으면 "N/A" 반환
+    }
+
 
 
     public String generateReport(String deviceId, List<Log> logs, LocalDateTime startTime, LocalDateTime endTime) throws Exception {
@@ -224,7 +242,7 @@ public class LogService {
 
         for (Log log : logs) {
             // 해시 값 검증
-            String messageToHash = log.getCreatedAt().format(FORMATTER) +" "+ log.getMessage();
+            String messageToHash = log.getCreatedAt().format(FORMATTER) +" "+ log.getMessage()+" ; serverTimestamp: "+log.getServerTimestamp().format(FORMATTER);
             System.out.println("messageToHash : " + messageToHash);
 
             String calculatedHash = calculateMessageHash(messageToHash);
@@ -242,7 +260,7 @@ public class LogService {
                 "Hash integrity verification completed] All logs have valid hash values.\n";
         hashValidationReport.append(hashStatus);
 
-        String timelineReport = isAnyHashInvalid ? "log analysis cannot proceed.\n" : generateTimelineReport(deviceId, logs);
+//        String timelineReport = isAnyHashInvalid ? "log analysis cannot proceed.\n" : generateTimelineReport(deviceId, logs);
 
         try (PdfWriter writer = new PdfWriter(new FileOutputStream(filePath));
              PdfDocument pdf = new PdfDocument(writer);
@@ -326,11 +344,57 @@ public class LogService {
                     row[2] = occurrence ? "O" : "X";  // Set O if the keyword is found, X if not found
                 }
                 addLogTable(document, "Bluetooth Log", bluetoothLogData);
+
+                // "device timestamp", "message", "server timestamp" 표 추가
+                document.add(new Paragraph("Reconstructing Timeline")
+                        .setBold().setFontSize(14).setMarginTop(20));
+
+                float[] columnWidths = {150f, 250f, 150f}; // 컬럼 너비 조정
+                Table table = new Table(UnitValue.createPointArray(columnWidths));
+                table.setWidth(UnitValue.createPercentValue(100)); // 전체 너비 조정
+
+// 헤더 스타일 적용
+                String[] headers = {"Device Timestamp", "Message", "Estimated Time Value"};
+                for (String header : headers) {
+                    Cell cell = new Cell().add(new Paragraph(header).setBold().setTextAlignment(TextAlignment.CENTER));
+                    cell.setBackgroundColor(new DeviceGray(0.85f)); // 연한 회색 배경
+                    cell.setBorder(Border.NO_BORDER);
+                    cell.setPadding(5);
+                    table.addHeaderCell(cell);
+                }
+
+// 데이터 추가
+                for (Log log : logs) {
+                    // deviceTimestamp
+                    Cell deviceTimestampCell = new Cell().add(new Paragraph(log.getCreatedAt().format(FORMATTER)).setTextAlignment(TextAlignment.CENTER));
+                    deviceTimestampCell.setBorder(Border.NO_BORDER).setPadding(5);
+                    table.addCell(deviceTimestampCell);
+
+                    // message
+                    Cell messageCell = new Cell().add(new Paragraph(log.getMessage()).setTextAlignment(TextAlignment.LEFT));
+                    messageCell.setBorder(Border.NO_BORDER).setPadding(5);
+                    table.addCell(messageCell);
+
+                    // logType이 AntiForensicLog일 경우에만 Estimated Time Value를 출력
+                    if ("AntiForensicLog".equals(log.getLogType())) {
+                        Cell estimatedTimevalueCell = new Cell().add(new Paragraph(calculateEstimatedTimestamp(log.getServerTimestamp(), log.getCreatedAt()))
+                                .setTextAlignment(TextAlignment.CENTER));
+                        estimatedTimevalueCell.setBorder(Border.NO_BORDER).setPadding(5);
+                        table.addCell(estimatedTimevalueCell);
+                    } else {
+                        // logType이 다른 경우에는 공백 셀을 추가
+                        Cell emptyCell = new Cell().add(new Paragraph("-")).setTextAlignment(TextAlignment.CENTER);
+                        emptyCell.setBorder(Border.NO_BORDER).setPadding(5);
+                        table.addCell(emptyCell);
+                    }
+                }
+
+// 표 추가
+                document.add(table);
             }
 
-            document.add(new Paragraph("📅 타임라인")
-                    .setBold().setFontSize(14).setMarginTop(20));
-            document.add(new Paragraph(timelineReport));
+
+
 
         } catch (IOException e) {
             throw new IOException("PDF 생성 중 오류 발생. 실행중인 PDF를 종료시켜주세요", e);
@@ -361,35 +425,41 @@ public class LogService {
         }
     }
 
-    public String generateTimelineReport(String deviceId, List<Log> logs) throws Exception {
-        StringBuilder report = new StringBuilder();
+//    public String generateTimelineReport(String deviceId, List<Log> logs) throws Exception {
+//        StringBuilder report = new StringBuilder();
+//
+//        // 헤더 스타일 적용 (굵게 & 회색 배경)
+//        report.append("\n\033[1;100m Timeline by Device Timestamp \033[0m\n\n");
+//
+//        // createdAt 기준 정렬
+//        List<Log> createdAtSortedLogs = logs.stream()
+//                .sorted(Comparator.comparing(Log::getCreatedAt))
+//                .collect(Collectors.toList());
+//
+//        // 로그 출력
+//        for (Log log : createdAtSortedLogs) {
+//            report.append(String.format("%s %s\n",
+//                    log.getCreatedAt().format(FORMATTER), log.getMessage()));
+//        }
+//
+//        report.append("\n");
+//
+//        // serverTimestamp 기준 정렬
+//        List<Log> serverTimestampSortedLogs = logs.stream()
+//                .sorted(Comparator.comparing(Log::getServerTimestamp))
+//                .collect(Collectors.toList());
+//
+//        report.append("\033[1;100m ⏳ Timeline by Server Timestamp \033[0m\n\n");
+//
+//        for (Log log : serverTimestampSortedLogs) {
+//            report.append(String.format("%s %s\n",
+//                    log.getServerTimestamp().format(FORMATTER), log.getMessage()));
+//        }
+//
+//        return report.toString();
+//    }
+//
 
-        // createdAt으로 정렬된 타임라인 출력
-        List<Log> createdAtSortedLogs = logs.stream()
-                .sorted(Comparator.comparing(Log::getCreatedAt))
-                .collect(Collectors.toList());
-
-
-        report.append("⏳ createdAt 기준 타임라인:\n");
-        for (Log log : createdAtSortedLogs) {
-            report.append(String.format("%s %s\n", log.getCreatedAt().format(FORMATTER), log.getMessage()));
-        }
-
-
-
-        report.append("\n");
-
-        // serverTimestamp로 정렬된 타임라인 출력
-        List<Log> serverTimestampSortedLogs = logs.stream()
-                .sorted(Comparator.comparing(Log::getServerTimestamp))
-                .collect(Collectors.toList());
-
-        report.append("⏳ serverTimestamp 기준 타임라인:\n");
-        for (Log log : serverTimestampSortedLogs) {
-            report.append(String.format("%s %s\n", log.getServerTimestamp().format(FORMATTER), log.getMessage()));
-        }
-        return report.toString();
-    }
 
 
     private String calculateMessageHash(String message) throws NoSuchAlgorithmException {
@@ -400,6 +470,8 @@ public class LogService {
         byte[] hashBytes = digest.digest();
         return bytesToHex(hashBytes);
     }
+
+
 
     public void deleteAll() {
             logRepository.deleteAll();

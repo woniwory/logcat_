@@ -52,6 +52,8 @@ public class LogController {
             logger.error("로그 파일 저장 실패: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("🚨 로그 파일 저장 실패: " + e.getMessage());
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
         }
     }
 
