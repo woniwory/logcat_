@@ -130,4 +130,7 @@ public class LogController {
         return ResponseEntity.ok("✅ 모든 로그가 삭제되었습니다.");
     }
 
+
+
+
 }

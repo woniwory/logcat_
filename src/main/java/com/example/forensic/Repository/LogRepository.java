@@ -21,6 +21,8 @@ public class LogRepository {
         mongoTemplate.save(log);
     }
 
+
+
     // 동적으로 컬렉션 이름을 받아서 deviceId와 logType을 기준으로 로그 조회
     public List<Log> findByDeviceIdAndLogType(String deviceId, String logType) {
         Query query = new Query();
@@ -28,6 +30,8 @@ public class LogRepository {
 
         return mongoTemplate.find(query, Log.class);
     }
+
+
 
 
     // 특정 deviceId의 로그를 주어진 기간 내에서 조회

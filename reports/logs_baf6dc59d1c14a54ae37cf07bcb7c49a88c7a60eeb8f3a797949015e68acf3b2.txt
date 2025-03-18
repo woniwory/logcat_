@@ -1,0 +1,2 @@
+2025-02-11 14:08:10 Call Type: start an outgoing call Number: 01049232198 Start Time: 2025-02-11 09:26:49 End Time: N/A Duration: 0 seconds ; serverTimestamp: 2025-02-18 14:08:10
+2025-02-11 14:08:10 Call Type: Termination of the call Number: 01049232198 Start Time: 2025-02-11 09:26:49 End Time: 2025-02-11 09:27:02 Duration: 13 seconds ; serverTimestamp: 2025-02-18 14:08:10
