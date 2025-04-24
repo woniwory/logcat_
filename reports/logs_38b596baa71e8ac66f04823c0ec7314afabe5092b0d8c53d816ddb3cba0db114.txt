@@ -1,4 +1,0 @@
-2025-02-11 09:26:00 Anti-forensic event detected: android.intent.action.TIME_SET ; serverTimestamp: 2025-02-18 14:08:12
-2025-02-11 09:26:00 SystemClockTime: Setting time of day to sec=1739233560453 ; serverTimestamp: 2025-02-18 14:08:12
-2025-02-11 09:26:00 Auto time setting enabled: false ; serverTimestamp: 2025-02-18 14:08:12
-2025-02-11 09:26:00 Before System Time : 2025-02-11 14:08:12 ; serverTimestamp: 2025-02-18 14:08:12
