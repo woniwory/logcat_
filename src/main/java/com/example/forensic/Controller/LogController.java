@@ -43,18 +43,10 @@ public class LogController {
     public ResponseEntity<String> handleLogUpload(
             @RequestParam("logFile") MultipartFile logFile,
             @RequestParam("hashFile") MultipartFile hashFile) {  // 해시 파일을 필수로 변경
-        try {
-            // 로그 파일과 해시 파일 처리
-            String logResult = logService.appendLog(logFile, hashFile);  // appendLog 메서드에 해시 파일을 넘김
+        // 로그 파일과 해시 파일 처리
+        String logResult = logService.appendLogAsync(logFile, hashFile);  // appendLog 메서드에 해시 파일을 넘김
 
-            return ResponseEntity.ok("✅ 로그 및 해시 파일 업로드 성공\n" + logResult);
-        } catch (IOException e) {
-            logger.error("로그 파일 저장 실패: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("🚨 로그 파일 저장 실패: " + e.getMessage());
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
+        return ResponseEntity.ok("✅ 로그 및 해시 파일 업로드 성공\n" + logResult);
     }
 
 
@@ -85,7 +77,7 @@ public class LogController {
 
             logger.info("📌 로그 분석 요청: Device={}, Start={}, End={}", deviceId, start, end);
 
-            String report = logService.analyzeLogs(deviceId, start, end);
+            String report = String.valueOf(logService.analyzeLog(deviceId, start, end));
             return ResponseEntity.ok(report);
         } catch (Exception e) {
             logger.error("🚨 로그 분석 실패: {}", e.getMessage());

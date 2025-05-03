@@ -17,7 +17,7 @@ services:
   # MongoDB 컨테이너
   mongodb:
     image: mongo:5.0
-    container_name: mongodb
+    container_name: mongodb_forensic
     ports:
       - "27017:27017"
     environment:
