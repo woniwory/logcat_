@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Spring Boot 애플리케이션
   app:
-    image: woniwory/forensic_spring
+    image: woniwory/forensic_spring:latest
     container_name: forensic-app
     ports:
       - "52346:8080"

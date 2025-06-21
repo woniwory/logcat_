@@ -1,33 +1,43 @@
 package com.example.forensic.Entity;
 
 import lombok.Data;
-
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-import java.time.LocalDateTime;
 
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
+@Getter
+@Setter
 @Document(collection = "logs")
 public class Log {
 
     @Id
     private String id;
-    private String deviceId;           // 사용자별 로그 구분
-    private LocalDateTime createdAt;    // 로그 생성 시간
-    private String message;
+    private String deviceId;                 // 사용자별 로그 구분
+    private List<Message> message;           // 메시지 목록
     private String logType;
     private String hash;
-    private LocalDateTime serverTimestamp; // 서버 수집 시간 (무결성 검증용)
+    @CreatedDate
+    private LocalDateTime createdAt;
+    @CreatedDate
+    private LocalDateTime serverTimestamp;
+
 
     // 생성자
-    public Log(String deviceId, LocalDateTime createdAt, String message,
-               String logType, String hash, LocalDateTime serverTimestamp) {
+    public Log(String deviceId,  List<Message> message,
+               String logType, String hash) {
         this.deviceId = deviceId;
-        this.createdAt = createdAt;
         this.message = message;
         this.logType = logType;
         this.hash = hash;
-        this.serverTimestamp = serverTimestamp;
+
     }
+
+
 }
