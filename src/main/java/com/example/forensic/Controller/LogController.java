@@ -113,8 +113,21 @@ public class LogController {
     public ResponseEntity<String> getServerTimestamp() {
         String currentTimestamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
         return ResponseEntity.ok(currentTimestamp);
     }
+
+
+//    @GetMapping("/timestamp")
+//    public ResponseEntity<String> getServerTimestamp() {
+//        String currentTimestamp = LocalDateTime.now()
+////                .plusHours(9)
+//                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+//
+//        return ResponseEntity.ok(currentTimestamp);
+//    }
+
+
 
     @DeleteMapping("/all")
     public ResponseEntity<String> deleteAllLogs() {

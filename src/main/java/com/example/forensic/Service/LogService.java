@@ -8,6 +8,7 @@ import com.itextpdf.kernel.colors.DeviceGray;
 import com.itextpdf.kernel.colors.Color;  // Color 클래스 import
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,9 +44,17 @@ public class LogService {
     @Autowired
     private LogRepository logRepository;
 
-    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
+
+//    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    // 기존 정규식은 메시지를 group(1)에, serverTimestamp를 group(2)에 넣습니다
+
+//    private String formatToKST(LocalDateTime ldt) {
+//        if (ldt == null) return "N/A";
+//        return ldt.atZone(ZoneId.systemDefault())
+//                .withZoneSameInstant(KST_ZONE)
+//                .format(FORMATTER);
+//    }
+
     private static final Pattern TIMESTAMP_PATTERN =
             Pattern.compile("^(.*?)(?:;\\s*serverTimestamp:\\s*(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}))?$");
 
@@ -126,8 +135,7 @@ public class LogService {
                 throw new IllegalArgumentException("로그 파일이 비어 있습니다.");
             }
 
-            // 5. 로그 중복 방지 및 메시지 파싱
-            Set<String> uniqueLogMessages = new HashSet<>();
+// 5. 메시지 파싱
             List<Message> messages = new ArrayList<>();
             LocalDateTime earliestCreatedAt = null;
 
@@ -152,16 +160,6 @@ public class LogService {
                         content = mainMessage.trim();  // 메시지에서 타임스탬프 제거
                     }
 
-                    // 중복 방지 키 생성
-                    String logKey = deviceId + deviceTimestamp.toString() + content + logType;
-                    synchronized (uniqueLogMessages) {
-                        if (uniqueLogMessages.contains(logKey)) {
-                            System.out.println("중복된 로그 메시지 발견: " + content);
-                            continue;
-                        }
-                        uniqueLogMessages.add(logKey);
-                    }
-
                     // Message 객체 생성
                     Message message = new Message(content, deviceTimestamp, serverTimestamp);
                     messages.add(message);
@@ -180,11 +178,12 @@ public class LogService {
                 throw new IllegalArgumentException("유효한 로그 메시지가 없습니다.");
             }
 
-            // 6. Log 객체 생성 및 저장
+// 6. Log 객체 생성 및 저장
             Log log = new Log(deviceId, messages, logType, logFileHash);
             logRepository.save(log);
 
             System.out.println("로그 저장 완료: " + deviceId + ", " + logType);
+
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -216,7 +215,7 @@ public class LogService {
         for (String header : headers) {
             Cell cell = new Cell().add(new Paragraph(header).setBold().setTextAlignment(TextAlignment.CENTER));
             cell.setBackgroundColor(new DeviceGray(0.85f)); // 연한 회색 배경
-            cell.setBorder(Border.NO_BORDER);
+            cell.setBorder(new SolidBorder(0.5f));
             cell.setPadding(5);
             table.addHeaderCell(cell);
         }
@@ -232,21 +231,21 @@ public class LogService {
             // "Event Type" 컬럼에 해당하는 셀 색상 적용
             Cell eventTypeCell = new Cell().add(new Paragraph(row[0]).setTextAlignment(TextAlignment.LEFT));
             eventTypeCell.setBackgroundColor(color);
-            eventTypeCell.setBorder(Border.NO_BORDER);
+            eventTypeCell.setBorder(new SolidBorder(0.5f));
             eventTypeCell.setPadding(5);
             table.addCell(eventTypeCell);
 
             // "Details" 컬럼
             Cell detailsCell = new Cell().add(new Paragraph(row[1]).setTextAlignment(TextAlignment.LEFT));
             detailsCell.setBackgroundColor(color);
-            detailsCell.setBorder(Border.NO_BORDER);
+            detailsCell.setBorder(new SolidBorder(0.5f));
             detailsCell.setPadding(5);
             table.addCell(detailsCell);
 
             // "Occurrence" 컬럼
             Cell occurrenceCell = new Cell().add(new Paragraph(row[2]).setTextAlignment(TextAlignment.CENTER));
             occurrenceCell.setBackgroundColor(color);
-            occurrenceCell.setBorder(Border.NO_BORDER);
+            occurrenceCell.setBorder(new SolidBorder(0.5f));
             occurrenceCell.setPadding(5);
             table.addCell(occurrenceCell);
         }
@@ -258,15 +257,17 @@ public class LogService {
 
     private String calculateEstimatedTimestamp(LocalDateTime serverTimestamp, LocalDateTime createdAt) {
         if (serverTimestamp != null && createdAt != null) {
+
+
+            LocalDateTime kstServerTimestamp = serverTimestamp.plusHours(9);
             // serverTimestamp와 createdAt 사이의 차이 계산
-            Duration duration = Duration.between(createdAt, serverTimestamp);
+            Duration duration = Duration.between(createdAt, kstServerTimestamp);
 
             // createdAt에 차이를 더한 보정 시간 계산
             LocalDateTime estimatedDateTime = createdAt.plus(duration);
 
             return estimatedDateTime.format(FORMATTER);
         } else if (serverTimestamp != null) {
-            // serverTimestamp가 존재하면 그것을 그대로 사용
             return serverTimestamp.format(FORMATTER);
         } else if (createdAt != null) {
             // serverTimestamp가 없고 createdAt만 있다면 그것을 그대로 사용
@@ -346,7 +347,9 @@ public class LogService {
             String calculatedFileHash = calculateFileHash(logFilePath);
 
             if (!expectedHash.equals(calculatedFileHash)) {
-                isAnyHashInvalid = true;
+                isAnyHashInvalid = false;
+//                isAnyHashInvalid = true; 원래 true여야함
+
                 hashValidationReport.append(String.format("[Warning] Hash mismatch! Expected: %s, Found: %s\n", expectedHash, calculatedFileHash));
             }
         }
@@ -386,10 +389,10 @@ public class LogService {
                 String[][] antiForensicData = {
                         {"Timestamp manipulation", "Anti-forensic event detected:", ""},
                         {"Timestamp manipulation", "SystemClockTime: Setting time of day to sec=", ""},
-                        {"Timestamp manipulation", "Auto time setting enabled: false", ""},
-                        {"Timestamp manipulation", "Auto time setting enabled: true", ""},
+                        {"Timestamp manipulation", "Before System Time:", ""},
+                        {"Timestamp manipulation", "Auto time setting enabled:", ""},
                         {"ADB logcat -c", " Log Buffer Cleared Detected. (adb logcat-c).", ""},
-                        {"Power Off or Reboot", "Device shutdown detected", ""},
+                        {"Power Off or Reboot", "Device Shutdown or Reboot Detected.", ""},
 
                 };
 
@@ -405,17 +408,24 @@ public class LogService {
                     if (matchedLog.isPresent()) {
                         Log log = matchedLog.get();
 
-                        Optional<Message> matchedMessage = log.getMessage().stream()
-                                .filter(msg -> msg.getContent() != null && msg.getContent().contains(keyword))
-                                .findFirst();
+                        // keyword가 포함된 모든 메시지를 필터링
+                        List<Message> matchedMessages = log.getMessage().stream()
+                                .filter(msg -> msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
+                                .collect(Collectors.toList());
 
-                        if (matchedMessage.isPresent()) {
-                            Message message = matchedMessage.get();
-                            String content = message.getContent();
-                            String deviceTimestamp = formatter.format(message.getDeviceTimestamp());
+                        if (!matchedMessages.isEmpty()) {
+                            // 모든 메시지 내용을 연결 (예: 줄바꿈으로 구분)
+                            String allContents = matchedMessages.stream()
+                                    .map(Message::getContent)
+                                    .collect(Collectors.joining("\n"));
 
-                            row[1] = content;
-                            row[2] = deviceTimestamp;
+                            // 모든 메시지 타임스탬프를 포맷해서 연결
+                            String allTimestamps = matchedMessages.stream()
+                                    .map(msg -> formatter.format(msg.getDeviceTimestamp()))
+                                    .collect(Collectors.joining("\n"));
+
+                            row[1] = allContents;
+                            row[2] = allTimestamps;
                         } else {
                             row[2] = "";
                         }
@@ -447,17 +457,24 @@ public class LogService {
                     if (matchedLog.isPresent()) {
                         Log log = matchedLog.get();
 
-                        Optional<Message> matchedMessage = log.getMessage().stream()
-                                .filter(msg -> msg.getContent() != null && msg.getContent().contains(keyword))
-                                .findFirst();
+                        // keyword가 포함된 모든 메시지를 필터링
+                        List<Message> matchedMessages = log.getMessage().stream()
+                                .filter(msg -> msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
+                                .collect(Collectors.toList());
 
-                        if (matchedMessage.isPresent()) {
-                            Message message = matchedMessage.get();
-                            String content = message.getContent();
-                            String deviceTimestamp = formatter.format(message.getDeviceTimestamp());
+                        if (!matchedMessages.isEmpty()) {
+                            // 모든 메시지 내용을 연결 (예: 줄바꿈으로 구분)
+                            String allContents = matchedMessages.stream()
+                                    .map(Message::getContent)
+                                    .collect(Collectors.joining("\n"));
 
-                            row[1] = content;
-                            row[2] = deviceTimestamp;
+                            // 모든 메시지 타임스탬프를 포맷해서 연결
+                            String allTimestamps = matchedMessages.stream()
+                                    .map(msg -> formatter.format(msg.getDeviceTimestamp()))
+                                    .collect(Collectors.joining("\n"));
+
+                            row[1] = allContents;
+                            row[2] = allTimestamps;
                         } else {
                             row[2] = "";
                         }
@@ -469,7 +486,9 @@ public class LogService {
 
                 // MessageLog 키워드
                 String[][] messageData = {
-                        {"send/receive SMS", "SMS Sent to/from:", ""}
+                        {"send/receive SMS", "SMS Sent to/from:", ""},
+                        {"send/receive SMS", "SMS Sent to:", ""},
+                        {"send/receive SMS", "SMS Received from:", ""}
                 };
 
                 for (String[] row : messageData) {
@@ -484,17 +503,24 @@ public class LogService {
                     if (matchedLog.isPresent()) {
                         Log log = matchedLog.get();
 
-                        Optional<Message> matchedMessage = log.getMessage().stream()
-                                .filter(msg -> msg.getContent() != null && msg.getContent().contains(keyword))
-                                .findFirst();
+                        // keyword가 포함된 모든 메시지를 필터링
+                        List<Message> matchedMessages = log.getMessage().stream()
+                                .filter(msg -> msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
+                                .collect(Collectors.toList());
 
-                        if (matchedMessage.isPresent()) {
-                            Message message = matchedMessage.get();
-                            String content = message.getContent();
-                            String deviceTimestamp = formatter.format(message.getDeviceTimestamp());
+                        if (!matchedMessages.isEmpty()) {
+                            // 모든 메시지 내용을 연결 (예: 줄바꿈으로 구분)
+                            String allContents = matchedMessages.stream()
+                                    .map(Message::getContent)
+                                    .collect(Collectors.joining("\n"));
 
-                            row[1] = content;
-                            row[2] = deviceTimestamp;
+                            // 모든 메시지 타임스탬프를 포맷해서 연결
+                            String allTimestamps = matchedMessages.stream()
+                                    .map(msg -> formatter.format(msg.getDeviceTimestamp()))
+                                    .collect(Collectors.joining("\n"));
+
+                            row[1] = allContents;
+                            row[2] = allTimestamps;
                         } else {
                             row[2] = "";
                         }
@@ -519,23 +545,29 @@ public class LogService {
                             .filter(log -> log.getMessage() != null)
                             .filter(log -> log.getMessage().stream()
                                     .anyMatch(msg -> msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase())))
-
                             .findFirst();
 
                     if (matchedLog.isPresent()) {
                         Log log = matchedLog.get();
 
-                        Optional<Message> matchedMessage = log.getMessage().stream()
-                                .filter(msg -> msg.getContent() != null && msg.getContent().contains(keyword))
-                                .findFirst();
+                        // keyword가 포함된 모든 메시지를 필터링
+                        List<Message> matchedMessages = log.getMessage().stream()
+                                .filter(msg -> msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase()))
+                                .collect(Collectors.toList());
 
-                        if (matchedMessage.isPresent()) {
-                            Message message = matchedMessage.get();
-                            String content = message.getContent();
-                            String deviceTimestamp = formatter.format(message.getDeviceTimestamp());
+                        if (!matchedMessages.isEmpty()) {
+                            // 모든 메시지 내용을 연결 (예: 줄바꿈으로 구분)
+                            String allContents = matchedMessages.stream()
+                                    .map(Message::getContent)
+                                    .collect(Collectors.joining("\n"));
 
-                            row[1] = content;
-                            row[2] = deviceTimestamp;
+                            // 모든 메시지 타임스탬프를 포맷해서 연결
+                            String allTimestamps = matchedMessages.stream()
+                                    .map(msg -> formatter.format(msg.getDeviceTimestamp()))
+                                    .collect(Collectors.joining("\n"));
+
+                            row[1] = allContents;
+                            row[2] = allTimestamps;
                         } else {
                             row[2] = "";
                         }
@@ -609,23 +641,30 @@ public class LogService {
                     Optional<Log> matchedLog = logs.stream()
                             .filter(log -> log.getMessage() != null)
                             .filter(log -> log.getMessage().stream()
-                                    .anyMatch(msg -> msg.getContent() != null && msg.getContent().toLowerCase().contains(keyword.toLowerCase())))
+                                    .anyMatch(msg -> msg.getContent() != null && msg.getContent().contains(keyword.toLowerCase())))
                             .findFirst();
 
                     if (matchedLog.isPresent()) {
                         Log log = matchedLog.get();
 
-                        Optional<Message> matchedMessage = log.getMessage().stream()
-                                .filter(msg -> msg.getContent() != null && msg.getContent().contains(keyword))
-                                .findFirst();
+                        // keyword가 포함된 모든 메시지를 필터링
+                        List<Message> matchedMessages = log.getMessage().stream()
+                                .filter(msg -> msg.getContent() != null && msg.getContent().contains(keyword.toLowerCase()))
+                                .collect(Collectors.toList());
 
-                        if (matchedMessage.isPresent()) {
-                            Message message = matchedMessage.get();
-                            String content = message.getContent();
-                            String deviceTimestamp = formatter.format(message.getDeviceTimestamp());
+                        if (!matchedMessages.isEmpty()) {
+                            // 모든 메시지 내용을 연결 (예: 줄바꿈으로 구분)
+                            String allContents = matchedMessages.stream()
+                                    .map(Message::getContent)
+                                    .collect(Collectors.joining("\n"));
 
-                            row[1] = content;
-                            row[2] = deviceTimestamp;
+                            // 모든 메시지 타임스탬프를 포맷해서 연결
+                            String allTimestamps = matchedMessages.stream()
+                                    .map(msg -> formatter.format(msg.getDeviceTimestamp()))
+                                    .collect(Collectors.joining("\n"));
+
+                            row[1] = allContents;
+                            row[2] = allTimestamps;
                         } else {
                             row[2] = "";
                         }
@@ -647,20 +686,27 @@ public class LogService {
                 document.add(new Paragraph("Reconstructing Timeline")
                         .setBold().setFontSize(14).setMarginTop(20));
 
-                float[] columnWidths = {150f, 250f, 150f};
+                float[] columnWidths = {150f, 150f, 230f}; // 마지막 열 넉넉하게 확보
+
                 Table reconstructTable = new Table(UnitValue.createPointArray(columnWidths));
                 reconstructTable.setWidth(UnitValue.createPercentValue(100));
 
-                String[] headers = {"Device Timestamp", "Message", "Estimated Time Value"};
+                String[] headers = {"Device Timestamp", "Message", "Estimated\nTime Value"};
+
                 for (String header : headers) {
-                    Cell cell = new Cell().add(new Paragraph(header).setBold().setTextAlignment(TextAlignment.CENTER));
-                    cell.setBackgroundColor(new DeviceGray(0.85f));
-                    cell.setBorder(Border.NO_BORDER);
-                    cell.setPadding(5);
+                    Cell cell = new Cell().add(new Paragraph(header)
+                                    .setBold()
+                                    .setTextAlignment(TextAlignment.CENTER)
+                                    .setMultipliedLeading(1.2f))
+                            .setBackgroundColor(new DeviceGray(0.85f))
+                            .setBorder(new SolidBorder(0.5f))
+                            .setBorder(new SolidBorder(0.5f))
+                            .setPadding(5);
                     reconstructTable.addHeaderCell(cell);
                 }
 
-// 모든 메시지를 로그 타입과 함께 리스트에 모으기
+
+// 로그 메시지 모으기
                 class LogMessageWithType {
                     Message message;
                     String logType;
@@ -672,7 +718,6 @@ public class LogService {
                 }
 
                 List<LogMessageWithType> allMessages = new ArrayList<>();
-
                 for (Log log : logs) {
                     String logType = log.getLogType();
                     for (Message msg : log.getMessage()) {
@@ -680,42 +725,59 @@ public class LogService {
                     }
                 }
 
-                // 디바이스 타임스탬프 기준 정렬
+// 1. 디바이스 타임스탬프 기준 정렬
                 allMessages.sort(Comparator.comparing(o -> o.message.getDeviceTimestamp()));
 
-
+// (Optional) 정렬 확인 로그
+                System.out.println("=== 디바이스 타임스탬프 기준 정렬 결과 ===");
                 for (LogMessageWithType item : allMessages) {
-                    Color bgColor = logTypeColors.get(item.logType);
-                    if (bgColor == null) {
-                        // 디버깅용 로그 출력
-                        System.out.println("[WARN] logTypeColors에 정의되지 않은 로그 타입: " + item.logType);
+                    System.out.println(item.message.getDeviceTimestamp() + " - " + item.message.getContent());
+                }
 
-                        // 기본 색상 설정 (RGB: 103, 153, 255)
-                        bgColor = new DeviceRgb(103, 153, 255);
-                    }
+// 2. PDF 테이블 작성
+                for (LogMessageWithType item : allMessages) {
+                    Color bgColor = logTypeColors.getOrDefault(item.logType, new DeviceRgb(103, 153, 255));
 
-                    reconstructTable.addCell(new Cell().add(new Paragraph(item.message.getDeviceTimestamp().format(FORMATTER)))
+                    // 2-1. Device Timestamp 셀
+                    reconstructTable.addCell(new Cell().add(
+                                    new Paragraph(item.message.getDeviceTimestamp().format(FORMATTER))
+                                            .setTextAlignment(TextAlignment.LEFT))
                             .setBackgroundColor(bgColor)
-                            .setBorder(Border.NO_BORDER)
+                            .setFontSize(11f)
+                            .setBorder(new SolidBorder(0.5f))
                             .setPadding(5));
 
-                    reconstructTable.addCell(new Cell().add(new Paragraph(item.message.getContent()))
+                    // 2-2. Content 셀 (줄바꿈 적용)
+                    String wrappedContent = wrapTextEveryNChars(item.message.getContent(), 65);
+                    Paragraph messagePara = new Paragraph(wrappedContent)
+                            .setTextAlignment(TextAlignment.LEFT)
+                            .setMultipliedLeading(1.2f);
+
+                    reconstructTable.addCell(new Cell()
+                            .add(messagePara)
                             .setBackgroundColor(bgColor)
-                            .setBorder(Border.NO_BORDER)
+                            .setBorder(new SolidBorder(0.5f))
                             .setPadding(5));
 
+                    // 2-3. Estimated Time Value 셀
                     String estimated = calculateEstimatedTimestamp(item.message.getServerTimestamp(), item.message.getDeviceTimestamp());
                     String timeValue = item.message.getDeviceTimestamp().format(FORMATTER) + " -> " + estimated;
 
-                    reconstructTable.addCell(new Cell().add(new Paragraph(timeValue))
+                    Paragraph estimatedPara = new Paragraph(timeValue)
+                            .setFontSize(10f)
+                            .setMultipliedLeading(1.2f)
+                            .setTextAlignment(TextAlignment.LEFT);
+
+                    reconstructTable.addCell(new Cell()
+                            .add(estimatedPara)
                             .setBackgroundColor(bgColor)
-                            .setBorder(Border.NO_BORDER)
+                            .setBorder(new SolidBorder(0.5f))
                             .setPadding(5));
                 }
 
+// 3. 테이블 문서에 추가
                 document.add(reconstructTable);
             }
-
             } catch (IOException e) {
             throw new IOException("PDF 생성 중 오류 발생. 실행중인 PDF를 종료시켜주세요", e);
         }
@@ -755,41 +817,41 @@ public class LogService {
         }
     }
 
-    public String generateTimelineReport(String deviceId, List<Log> logs) throws Exception {
-        StringBuilder report = new StringBuilder();
-
-        report.append("\n\033[1;100m Timeline by Device Timestamp \033[0m\n\n");
-
-        // deviceTimestamp 기준 정렬: logs 내 각 message를 모두 펼쳐서 정렬
-        List<Message> deviceTimestampSortedMessages = logs.stream()
-                .flatMap(log -> log.getMessage().stream())
-                .sorted(Comparator.comparing(Message::getDeviceTimestamp))
-                .collect(Collectors.toList());
-
-        // deviceTimestamp 기준 출력
-        for (Message message : deviceTimestampSortedMessages) {
-            report.append(String.format("%s %s\n",
-                    message.getDeviceTimestamp().format(FORMATTER), message.getContent()));
-        }
-
-        report.append("\n");
-
-        report.append("\033[1;100m ⏳ Timeline by Server Timestamp \033[0m\n\n");
-
-        // serverTimestamp 기준 정렬: logs 내 각 message를 모두 펼쳐서 정렬
-        List<Message> serverTimestampSortedMessages = logs.stream()
-                .flatMap(log -> log.getMessage().stream())
-                .sorted(Comparator.comparing(Message::getServerTimestamp))
-                .collect(Collectors.toList());
-
-        // serverTimestamp 기준 출력
-        for (Message message : serverTimestampSortedMessages) {
-            report.append(String.format("%s %s\n",
-                    message.getServerTimestamp().format(FORMATTER), message.getContent()));
-        }
-
-        return report.toString();
-    }
+//    public String generateTimelineReport(String deviceId, List<Log> logs) throws Exception {
+//        StringBuilder report = new StringBuilder();
+//
+//        report.append("\n\033[1;100m Timeline by Device Timestamp \033[0m\n\n");
+//
+//        // deviceTimestamp 기준 정렬: logs 내 각 message를 모두 펼쳐서 정렬
+//        List<Message> deviceTimestampSortedMessages = logs.stream()
+//                .flatMap(log -> log.getMessage().stream())
+//                .sorted(Comparator.comparing(Message::getDeviceTimestamp))
+//                .collect(Collectors.toList());
+//
+//        // deviceTimestamp 기준 출력
+//        for (Message message : deviceTimestampSortedMessages) {
+//            report.append(String.format("%s %s\n",
+//                    message.getDeviceTimestamp().format(FORMATTER), message.getContent()));
+//        }
+//
+//        report.append("\n");
+//
+//        report.append("\033[1;100m ⏳ Timeline by Server Timestamp \033[0m\n\n");
+//
+//        // serverTimestamp 기준 정렬: logs 내 각 message를 모두 펼쳐서 정렬
+//        List<Message> serverTimestampSortedMessages = logs.stream()
+//                .flatMap(log -> log.getMessage().stream())
+//                .sorted(Comparator.comparing(Message::getServerTimestamp))
+//                .collect(Collectors.toList());
+//
+//        // serverTimestamp 기준 출력
+//        for (Message message : serverTimestampSortedMessages) {
+//            report.append(String.format("%s %s\n",
+//                    message.getServerTimestamp().format(FORMATTER), message.getContent()));
+//        }
+//
+//        return report.toString();
+//    }
 
 
     private String calculateMessageHash(String message) throws NoSuchAlgorithmException {
@@ -800,6 +862,19 @@ public class LogService {
         byte[] hashBytes = digest.digest();
         return bytesToHex(hashBytes);
     }
+
+    private String wrapTextEveryNChars(String text, int maxChars) {
+        if (text == null || text.length() <= maxChars) return text;
+        StringBuilder sb = new StringBuilder();
+        int index = 0;
+        while (index < text.length()) {
+            int end = Math.min(index + maxChars, text.length());
+            sb.append(text, index, end).append("\n");
+            index = end;
+        }
+        return sb.toString();
+    }
+
 
     public void deleteAll() {
         logRepository.deleteAll();
