@@ -1,9 +1,11 @@
 package com.example.forensic.Controller;
 
+import com.example.forensic.Service.HashService;
 import com.example.forensic.dto.LogRequest;
 import com.example.forensic.Service.LogService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +21,12 @@ import java.time.format.DateTimeFormatter;
 public class LogController {
 
     private static final Logger logger = LoggerFactory.getLogger(LogController.class);
-    private final LogService logService;
+
+    @Autowired
+    private LogService logService;
+
+    @Autowired
+    private HashService hashService;
 
     public LogController(LogService logService) {
         this.logService = logService;
@@ -95,7 +102,7 @@ public class LogController {
             @PathVariable String hash) {
 
         try {
-            boolean isValid = logService.verifyLogIntegrity(deviceId, logType, hash);
+            boolean isValid = hashService.verifyLogIntegrity(deviceId, logType, hash);
 
             if (isValid) {
                 return ResponseEntity.ok("✅ 무결성 검증 성공: 해시가 일치합니다.");
@@ -112,6 +119,7 @@ public class LogController {
     @GetMapping("/timestamp")
     public ResponseEntity<String> getServerTimestamp() {
         String currentTimestamp = LocalDateTime.now()
+                .plusHours(9)
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
         return ResponseEntity.ok(currentTimestamp);
