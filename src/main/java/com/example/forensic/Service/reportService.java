@@ -126,7 +126,7 @@ public class reportService {
                     {"Timestamp manipulation", "SystemClockTime: Setting time of day to sec=", ""},
                     {"Timestamp manipulation", "Before System Time:", ""},
                     {"Timestamp manipulation", "Auto time setting enabled:", ""},
-                    {"ADB logcat -c", " Log Buffer Cleared Detected. (adb logcat-c).", ""},
+                    {"ADB logcat -c", "Log Buffer Cleared Detected. (adb logcat -c)", ""},
                     {"Power Off or Reboot", "Device Shutdown or Reboot Detected.", ""},
             });
             keywordMappings.put("CallingLog", new String[][]{
@@ -146,6 +146,7 @@ public class reportService {
             keywordMappings.put("MessageLog", new String[][]{
                     {"send/receive SMS", "SMS Sent to/from:", ""},
                     {"send/receive SMS", "SMS Sent to:", ""},
+                    {"send/receive SMS", "SMS Sent from:", ""},
                     {"send/receive SMS", "SMS Received from:", ""},
             });
             keywordMappings.put("FileLog", new String[][]{
@@ -229,14 +230,17 @@ public class reportService {
 
                     matchedRow.ifPresent(row -> {
                         Color bgColor = logTypeColors.getOrDefault(logType, new DeviceGray(0.85f));
+                        String wrappedContent = wrapTextEveryNChars(wrapper.message.getContent(), 65);
+
                         table.addCell(new Cell().add(new Paragraph(row[0]))
                                 .setBackgroundColor(bgColor));
-                        table.addCell(new Cell().add(new Paragraph(wrapper.message.getContent()))
+                        table.addCell(new Cell().add(new Paragraph(wrappedContent))
                                 .setBackgroundColor(bgColor));
                         table.addCell(new Cell().add(new Paragraph(wrapper.message.getDeviceTimestamp().format(FORMATTER)))
                                 .setBackgroundColor(bgColor));
                     });
                 }
+
 
                 document.add(table);
             }
@@ -278,7 +282,9 @@ public class reportService {
                         .setBackgroundColor(bgColor)
                         .setPadding(5));
 
-                timelineTable.addCell(new Cell().add(new Paragraph(msg.getContent()))
+                // 메시지 내용을 70자마다 줄바꿈 적용
+                String wrappedContent = wrapTextEveryNChars(msg.getContent(), 65);
+                timelineTable.addCell(new Cell().add(new Paragraph(wrappedContent))
                         .setBackgroundColor(bgColor)
                         .setPadding(5));
 
@@ -317,11 +323,9 @@ public class reportService {
      * estimatedTimestamp 계산 메서드
      * 필요시 내부 로직 변경 가능
      */
-    private String calculateEstimatedTimestamp(LocalDateTime serverTimestamp, LocalDateTime createdAt) {
-        if (serverTimestamp != null && createdAt != null) {
+    private String calculateEstimatedTimestamp(LocalDateTime kstServerTimestamp, LocalDateTime createdAt) {
+        if (kstServerTimestamp != null && createdAt != null) {
 
-
-            LocalDateTime kstServerTimestamp = serverTimestamp.plusHours(9);
             // serverTimestamp와 createdAt 사이의 차이 계산
             Duration duration = Duration.between(createdAt, kstServerTimestamp);
 
@@ -329,8 +333,8 @@ public class reportService {
             LocalDateTime estimatedDateTime = createdAt.plus(duration);
 
             return estimatedDateTime.format(FORMATTER);
-        } else if (serverTimestamp != null) {
-            return serverTimestamp.format(FORMATTER);
+        } else if (kstServerTimestamp != null) {
+            return kstServerTimestamp.format(FORMATTER);
         } else if (createdAt != null) {
             // serverTimestamp가 없고 createdAt만 있다면 그것을 그대로 사용
             return createdAt.format(FORMATTER);
@@ -338,6 +342,18 @@ public class reportService {
         return "N/A"; // 두 값 모두 없으면 "N/A" 반환
     }
 
+
+    private String wrapTextEveryNChars(String text, int maxChars) {
+        if (text == null || text.length() <= maxChars) return text;
+        StringBuilder sb = new StringBuilder();
+        int index = 0;
+        while (index < text.length()) {
+            int end = Math.min(index + maxChars, text.length());
+            sb.append(text, index, end).append("\n");
+            index = end;
+        }
+        return sb.toString();
+    }
 
 
 
